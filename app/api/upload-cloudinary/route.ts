@@ -1,0 +1,79 @@
+import { NextRequest, NextResponse } from 'next/server';
+
+/**
+ * API Route สำหรับอัปโหลดไฟล์ไปยัง Cloudinary
+ * Cloudinary API: https://cloudinary.com/documentation/image_upload_api
+ */
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { imageBase64, imageType } = body;
+
+    if (!imageBase64) {
+      return NextResponse.json(
+        { error: 'No image provided' },
+        { status: 400 }
+      );
+    }
+
+    // Cloudinary configuration
+    const CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME;
+    const CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY;
+    const CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET;
+
+    if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_API_KEY || !CLOUDINARY_API_SECRET) {
+      return NextResponse.json(
+        { 
+          error: 'Cloudinary ไม่ได้ตั้งค่า',
+          details: 'กรุณาเพิ่ม CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, และ CLOUDINARY_API_SECRET ใน environment variables'
+        },
+        { status: 500 }
+      );
+    }
+
+    // Upload to Cloudinary
+    const uploadUrl = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
+    
+    const formData = new FormData();
+    formData.append('file', `data:${imageType};base64,${imageBase64}`);
+    formData.append('upload_preset', 'ml_default'); // หรือใช้ unsigned upload preset
+
+    const response = await fetch(uploadUrl, {
+      method: 'POST',
+      body: formData,
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error('Cloudinary API error:', data);
+      return NextResponse.json(
+        { 
+          error: 'Failed to upload image to Cloudinary',
+          details: data.error?.message || 'Unknown error'
+        },
+        { status: response.status }
+      );
+    }
+
+    // Return the image URL
+    return NextResponse.json(
+      { 
+        success: true,
+        imageUrl: data.secure_url, // Use secure_url for HTTPS
+        publicId: data.public_id,
+      },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error('Error uploading to Cloudinary:', error);
+    return NextResponse.json(
+      { 
+        error: 'Failed to upload image',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
+      { status: 500 }
+    );
+  }
+}
+

@@ -46,6 +46,19 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       console.error('Imgur API error:', data);
+      
+      // Handle specific Imgur errors
+      if (data.data?.error?.includes('over capacity') || response.status === 500) {
+        return NextResponse.json(
+          { 
+            error: 'Imgur กำลังมีปัญหา',
+            details: 'Imgur server กำลังมีปัญหา กรุณาลองอีกครั้งในภายหลัง หรือใช้ storage service อื่น',
+            retry: true
+          },
+          { status: 503 }
+        );
+      }
+      
       return NextResponse.json(
         { 
           error: 'Failed to upload image to Imgur',

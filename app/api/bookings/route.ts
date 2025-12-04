@@ -46,17 +46,24 @@ export async function POST(request: NextRequest) {
     // Add receipt attachment if URL is provided (from Imgur or other storage service)
     if (receiptUrl && receiptFileName) {
       try {
+        // Ensure URL is absolute (starts with http:// or https://)
+        const absoluteUrl = receiptUrl.startsWith('http://') || receiptUrl.startsWith('https://') 
+          ? receiptUrl 
+          : `https://${receiptUrl}`;
+        
         fields['Receipt'] = [
           {
-            url: receiptUrl,
+            url: absoluteUrl,
             filename: receiptFileName,
           },
         ];
-        console.log('Adding receipt attachment to Airtable:', receiptUrl);
+        console.log('Adding receipt attachment to Airtable:', absoluteUrl);
       } catch (receiptError) {
         console.error('Error adding receipt attachment:', receiptError);
         // Continue without receipt if attachment fails
       }
+    } else {
+      console.log('No receipt URL provided - skipping receipt attachment');
     }
 
     // Retry logic for network issues
@@ -123,6 +130,16 @@ export async function POST(request: NextRequest) {
         { 
           error: 'Field Status ไม่มี option "Pending"',
           details: 'กรุณาไปที่ Airtable → Table "Bookings" → Field "Status" → เพิ่ม option "Pending" (ดู STATUS_FIELD_FIX.md)'
+        },
+        { status: 422 }
+      );
+    }
+    
+    if (error?.error === 'INVALID_VALUE_FOR_COLUMN' && (error?.message?.includes('Receipt') || error?.message?.includes('attachment'))) {
+      return NextResponse.json(
+        { 
+          error: 'ไม่สามารถบันทึกรูปใบเสร็จได้',
+          details: 'Airtable ไม่สามารถรับ URL จาก Imgur ได้ กรุณาตรวจสอบว่า Field "Receipt" เป็น Type "Attachment" และ URL ถูกต้อง (ดู RECEIPT_TROUBLESHOOTING.md)'
         },
         { status: 422 }
       );

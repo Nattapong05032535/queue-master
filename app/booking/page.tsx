@@ -82,8 +82,44 @@ export default function BookingPage() {
             reader.readAsDataURL(receiptFile);
           });
 
-          // Upload to Imgur
-          const uploadResponse = await fetch('/api/upload', {
+          // Upload to storage service (Imgur or Cloudinary)
+          // Try Cloudinary first (more reliable), fallback to Imgur
+          let uploadResponse;
+          let uploadData;
+          
+          // Try Cloudinary first
+          try {
+            uploadResponse = await fetch('/api/upload-cloudinary', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                imageBase64: fileBase64,
+                imageType: receiptFile.type,
+              }),
+            });
+            uploadData = await uploadResponse.json();
+            
+            // If Cloudinary fails, try Imgur as fallback
+            if (!uploadResponse.ok) {
+              console.log('Cloudinary upload failed, trying Imgur...');
+              uploadResponse = await fetch('/api/upload', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  imageBase64: fileBase64,
+                  imageType: receiptFile.type,
+                }),
+              });
+              uploadData = await uploadResponse.json();
+            }
+          } catch (err) {
+            // If Cloudinary API doesn't exist, try Imgur
+            console.log('Cloudinary not available, trying Imgur...');
+            uploadResponse = await fetch('/api/upload', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
