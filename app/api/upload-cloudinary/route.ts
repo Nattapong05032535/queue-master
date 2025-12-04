@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createHash } from 'crypto';
 
 /**
  * API Route สำหรับอัปโหลดไฟล์ไปยัง Cloudinary
