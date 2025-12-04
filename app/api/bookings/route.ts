@@ -10,7 +10,7 @@ const base = new Airtable({
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { firstName, lastName, timeSlot, roomId, roomName, receiptFile, receiptFileName, receiptFileType } = body;
+    const { firstName, lastName, timeSlot, roomId, roomName, receiptUrl, receiptFileName } = body;
 
     // Validate required fields
     if (!firstName || !lastName || !timeSlot || !roomId) {
@@ -35,21 +35,29 @@ export async function POST(request: NextRequest) {
       'Time Slot': timeSlot,
       'Room ID': roomId,
       'Room Name': roomName,
-      'Status': 'Pending',
       'Created At': new Date().toISOString(),
     };
 
-    // Skip receipt attachment for now since Airtable doesn't support data URLs
-    // TODO: Implement file upload to storage service (S3, Cloudinary, etc.)
-    // Then use the public URL for the attachment
-    // if (receiptFile && receiptFileName) {
-    //   fields['Receipt'] = [
-    //     {
-    //       url: publicFileUrl,
-    //       filename: receiptFileName,
-    //     },
-    //   ];
-    // }
+    // Add Status - make sure "Pending" option exists in Airtable Status field
+    // If you get INVALID_MULTIPLE_CHOICE_OPTIONS error, add "Pending" option in Airtable
+    // Go to Airtable → Bookings table → Status field → Add option "Pending"
+    fields['Status'] = 'Pending';
+
+    // Add receipt attachment if URL is provided (from Imgur or other storage service)
+    if (receiptUrl && receiptFileName) {
+      try {
+        fields['Receipt'] = [
+          {
+            url: receiptUrl,
+            filename: receiptFileName,
+          },
+        ];
+        console.log('Adding receipt attachment to Airtable:', receiptUrl);
+      } catch (receiptError) {
+        console.error('Error adding receipt attachment:', receiptError);
+        // Continue without receipt if attachment fails
+      }
+    }
 
     // Retry logic for network issues
     let records;
@@ -100,11 +108,21 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    if (error?.error === 'INVALID_ATTACHMENT_OBJECT' || error?.statusCode === 422) {
+    if (error?.error === 'INVALID_ATTACHMENT_OBJECT') {
       return NextResponse.json(
         { 
           error: 'ไม่สามารถอัปโหลดไฟล์ได้',
           details: 'Airtable ไม่รองรับ data URL สำหรับ attachment กรุณาอัปโหลดไฟล์ไปยัง storage service ก่อน'
+        },
+        { status: 422 }
+      );
+    }
+    
+    if (error?.error === 'INVALID_MULTIPLE_CHOICE_OPTIONS' || error?.message?.includes('select option')) {
+      return NextResponse.json(
+        { 
+          error: 'Field Status ไม่มี option "Pending"',
+          details: 'กรุณาไปที่ Airtable → Table "Bookings" → Field "Status" → เพิ่ม option "Pending" (ดู STATUS_FIELD_FIX.md)'
         },
         { status: 422 }
       );

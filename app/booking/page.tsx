@@ -68,9 +68,55 @@ export default function BookingPage() {
         roomName: bookingData.roomName,
       };
 
-      // Note: Receipt upload is optional since Airtable doesn't support data URLs
-      // In production, implement file upload to storage service (S3, Cloudinary, etc.)
-      // For now, we skip receipt file upload
+      // Upload receipt image if provided
+      if (receiptFile) {
+        try {
+          // Convert file to base64
+          const fileBase64 = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              const base64String = (reader.result as string).split(',')[1];
+              resolve(base64String);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(receiptFile);
+          });
+
+          // Upload to Imgur
+          const uploadResponse = await fetch('/api/upload', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              imageBase64: fileBase64,
+              imageType: receiptFile.type,
+            }),
+          });
+
+          const uploadData = await uploadResponse.json();
+
+          if (uploadResponse.ok && uploadData.imageUrl) {
+            requestBody.receiptUrl = uploadData.imageUrl;
+            requestBody.receiptFileName = receiptFile.name;
+            console.log('Receipt uploaded successfully:', uploadData.imageUrl);
+          } else {
+            const errorMsg = uploadData.error || uploadData.details || 'ไม่สามารถอัปโหลดรูปใบเสร็จได้';
+            console.warn('Failed to upload receipt image:', uploadData);
+            // Show warning but continue without receipt
+            if (uploadData.error === 'Imgur Client ID ไม่ได้ตั้งค่า') {
+              setError(`คำเตือน: ${errorMsg} - ข้อมูลการจองจะถูกบันทึกโดยไม่มีรูปใบเสร็จ`);
+            } else {
+              setError(`คำเตือน: ${errorMsg} - ข้อมูลการจองจะถูกบันทึกโดยไม่มีรูปใบเสร็จ`);
+            }
+            // Continue without receipt if upload fails
+          }
+        } catch (uploadError) {
+          console.error('Error uploading receipt:', uploadError);
+          setError('คำเตือน: ไม่สามารถอัปโหลดรูปใบเสร็จได้ แต่จะบันทึกข้อมูลการจองไว้');
+          // Continue without receipt if upload fails
+        }
+      }
       
       // Call API to save to Airtable
       const response = await fetch('/api/bookings', {
@@ -203,7 +249,7 @@ export default function BookingPage() {
                 </div>
               )}
               <p className="mt-2 text-xs text-gray-500">
-                หมายเหตุ: การอัปโหลดใบเสร็จจะพร้อมใช้งานในอนาคต
+                หมายเหตุ: ใบเสร็จจะถูกอัปโหลดไปยัง Imgur และบันทึกลง Airtable
               </p>
             </div>
 
