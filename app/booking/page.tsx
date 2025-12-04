@@ -104,6 +104,27 @@ export default function BookingPage() {
             // If Cloudinary fails, try Imgur as fallback
             if (!uploadResponse.ok) {
               console.log('Cloudinary upload failed, trying Imgur...');
+              try {
+                uploadResponse = await fetch('/api/upload', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    imageBase64: fileBase64,
+                    imageType: receiptFile.type,
+                  }),
+                });
+                uploadData = await uploadResponse.json();
+              } catch (imgurError) {
+                console.error('Error uploading to Imgur:', imgurError);
+                uploadData = { error: 'ไม่สามารถอัปโหลดรูปใบเสร็จได้' };
+              }
+            }
+          } catch (err) {
+            // If Cloudinary API doesn't exist, try Imgur
+            console.log('Cloudinary not available, trying Imgur...');
+            try {
               uploadResponse = await fetch('/api/upload', {
                 method: 'POST',
                 headers: {
@@ -115,24 +136,13 @@ export default function BookingPage() {
                 }),
               });
               uploadData = await uploadResponse.json();
+            } catch (imgurError) {
+              console.error('Error uploading to Imgur:', imgurError);
+              uploadData = { error: 'ไม่สามารถอัปโหลดรูปใบเสร็จได้' };
             }
-          } catch (err) {
-            // If Cloudinary API doesn't exist, try Imgur
-            console.log('Cloudinary not available, trying Imgur...');
-            uploadResponse = await fetch('/api/upload', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              imageBase64: fileBase64,
-              imageType: receiptFile.type,
-            }),
-          });
+          }
 
-          const uploadData = await uploadResponse.json();
-
-          if (uploadResponse.ok && uploadData.imageUrl) {
+          if (uploadResponse && uploadResponse.ok && uploadData.imageUrl) {
             requestBody.receiptUrl = uploadData.imageUrl;
             requestBody.receiptFileName = receiptFile.name;
             console.log('Receipt uploaded successfully:', uploadData.imageUrl);
