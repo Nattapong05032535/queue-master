@@ -13,11 +13,11 @@ export async function POST(request: NextRequest) {
     const { firstName, lastName, date, timeSlot, startTime, endTime, roomId, roomName, receiptUrl, receiptFileName } = body;
 
     // Validate required fields
-    if (!firstName || !lastName || !timeSlot || !roomId) {
+    if (!firstName || !lastName || !timeSlot || !roomId || !date) {
       return NextResponse.json(
         { 
           error: 'กรุณากรอกข้อมูลให้ครบถ้วน',
-          details: 'กรุณากรอกชื่อ นามสกุล และเลือกช่วงเวลาและห้อง'
+          details: 'กรุณากรอกชื่อ นามสกุล เลือกวันที่ และเลือกช่วงเวลาและห้อง'
         },
         { status: 400 }
       );
@@ -35,12 +35,14 @@ export async function POST(request: NextRequest) {
       'Time Slot': timeSlot,
       'Room ID': roomId,
       'Room Name': roomName,
-      'Created At': new Date().toISOString(),
+      'Created At': new Date().toISOString(), // วันที่ทำรายการ (วันที่สร้าง record)
     };
 
-    // Add date if provided
+    // Add booking date (วันที่จองที่ผู้ใช้เลือก) - Airtable Date field expects YYYY-MM-DD format
     if (date) {
-      fields['Date'] = date;
+      // Ensure date is in YYYY-MM-DD format
+      const dateValue = date.includes('T') ? date.split('T')[0] : date;
+      fields['Date'] = dateValue; // วันที่จอง (วันที่ที่ผู้ใช้เลือกจาก calendar)
     }
 
     // Add start and end times if provided
@@ -153,6 +155,16 @@ export async function POST(request: NextRequest) {
         { 
           error: 'ไม่สามารถบันทึกรูปใบเสร็จได้',
           details: 'Airtable ไม่สามารถรับ URL จาก Imgur ได้ กรุณาตรวจสอบว่า Field "Receipt" เป็น Type "Attachment" และ URL ถูกต้อง (ดู RECEIPT_TROUBLESHOOTING.md)'
+        },
+        { status: 422 }
+      );
+    }
+    
+    if (error?.error === 'INVALID_VALUE_FOR_COLUMN' && (error?.message?.includes('Date') || error?.message?.toLowerCase().includes('date'))) {
+      return NextResponse.json(
+        { 
+          error: 'ไม่สามารถบันทึกวันที่ได้',
+          details: 'กรุณาตรวจสอบว่า Field "Date" มีอยู่ใน Airtable และเป็น Type "Date" หรือ "Single line text" (ถ้าเป็น Date field ต้องเป็น format YYYY-MM-DD)'
         },
         { status: 422 }
       );
