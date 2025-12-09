@@ -10,14 +10,14 @@ const base = new Airtable({
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { firstName, lastName, timeSlot, roomId, roomName, receiptUrl, receiptFileName } = body;
+    const { firstName, lastName, date, startTime, endTime, timeSlot, roomId, roomName, receiptUrl, receiptFileName } = body;
 
     // Validate required fields
-    if (!firstName || !lastName || !timeSlot || !roomId) {
+    if (!firstName || !lastName || !date || !startTime || !endTime || !roomId) {
       return NextResponse.json(
         { 
           error: 'กรุณากรอกข้อมูลให้ครบถ้วน',
-          details: 'กรุณากรอกชื่อ นามสกุล และเลือกช่วงเวลาและห้อง'
+          details: 'กรุณากรอกชื่อ นามสกุล และเลือกวันที่ ช่วงเวลาและห้อง'
         },
         { status: 400 }
       );
@@ -32,7 +32,10 @@ export async function POST(request: NextRequest) {
     const fields: Record<string, any> = {
       'First Name': firstName,
       'Last Name': lastName,
-      'Time Slot': timeSlot,
+      'Date': date,
+      'Start Time': startTime,
+      'End Time': endTime,
+      'Time Slot': timeSlot || `${startTime} - ${endTime}`, // For display/backward compatibility
       'Room ID': roomId,
       'Room Name': roomName,
       'Created At': new Date().toISOString(),

@@ -4,7 +4,10 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 interface BookingData {
-  timeSlot: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  timeSlot: string; // For display purposes
   roomId: string;
   roomName: string;
 }
@@ -63,7 +66,10 @@ export default function BookingPage() {
       const requestBody: any = {
         firstName,
         lastName,
-        timeSlot: bookingData.timeSlot,
+        date: bookingData.date,
+        startTime: bookingData.startTime,
+        endTime: bookingData.endTime,
+        timeSlot: bookingData.timeSlot, // For display/backward compatibility
         roomId: bookingData.roomId,
         roomName: bookingData.roomName,
       };
@@ -224,10 +230,14 @@ export default function BookingPage() {
         </div>
 
         <div className="bg-white rounded-lg shadow-xl p-8">
-          {/* Display Selected Time and Room */}
+          {/* Display Selected Date, Time and Room */}
           <div className="mb-8 p-6 bg-indigo-50 rounded-lg border border-indigo-200">
             <h3 className="text-lg font-semibold text-indigo-900 mb-3">ข้อมูลการจองที่เลือก</h3>
             <div className="space-y-2 text-gray-700">
+              <div className="flex items-center">
+                <span className="font-medium w-24">วันที่:</span>
+                <span>{bookingData.date ? new Date(bookingData.date).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' }) : '-'}</span>
+              </div>
               <div className="flex items-center">
                 <span className="font-medium w-24">ช่วงเวลา:</span>
                 <span>{bookingData.timeSlot}</span>
