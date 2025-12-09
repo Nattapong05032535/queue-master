@@ -28,21 +28,6 @@ const getMaxDate = () => {
   return maxDate.toISOString().split('T')[0];
 };
 
-// Mock availability data - in real app, this would come from API
-const getAvailableRooms = (date: string, startTime: string, endTime: string): string[] => {
-  const timeSlot = `${startTime} - ${endTime}`;
-  // Simulate availability - you can modify this logic
-  const mockAvailability: Record<string, string[]> = {
-    '10:00 - 12:00': ['room1', 'room2'],
-    '12:00 - 14:00': ['room1'],
-    '14:00 - 16:00': ['room2'],
-    '16:00 - 18:00': ['room1', 'room2'],
-    '18:00 - 20:00': ['room1'],
-    '20:00 - 22:00': ['room2'],
-  };
-  return mockAvailability[timeSlot] || [];
-};
-
 export default function HomePage() {
   const router = useRouter();
   const [selectedDate, setSelectedDate] = useState<string>('');
@@ -51,6 +36,8 @@ export default function HomePage() {
   const [confirmedTimeSlot, setConfirmedTimeSlot] = useState<string>('');
   const [availableRooms, setAvailableRooms] = useState<string[]>([]);
   const [selectedRoom, setSelectedRoom] = useState<string>('');
+  const [isLoadingRooms, setIsLoadingRooms] = useState<boolean>(false);
+  const [roomError, setRoomError] = useState<string | null>(null);
 
   const minDate = getMinDate();
   const maxDate = getMaxDate();
@@ -62,7 +49,7 @@ export default function HomePage() {
     setSelectedRoom('');
   }, [selectedDate, startTime, endTime]);
 
-  const handleConfirmTime = () => {
+  const handleConfirmTime = async () => {
     if (selectedDate && startTime && endTime) {
       if (startTime >= endTime) {
         alert('เวลาเริ่มต้นต้องน้อยกว่าเวลาสิ้นสุด');
@@ -70,9 +57,33 @@ export default function HomePage() {
       }
       const timeSlot = `${startTime} - ${endTime}`;
       setConfirmedTimeSlot(timeSlot);
-      const rooms = getAvailableRooms(selectedDate, startTime, endTime);
-      setAvailableRooms(rooms);
       setSelectedRoom('');
+      setRoomError(null);
+      setIsLoadingRooms(true);
+
+      try {
+        // Format date to YYYY-MM-DD
+        const dateValue = selectedDate.includes('T') ? selectedDate.split('T')[0] : selectedDate;
+        
+        // Fetch available rooms from API
+        const response = await fetch(
+          `/api/availability?date=${encodeURIComponent(dateValue)}&timeSlot=${encodeURIComponent(timeSlot)}`
+        );
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(data.error || data.details || 'ไม่สามารถตรวจสอบความพร้อมของห้องได้');
+        }
+        
+        setAvailableRooms(data.availableRooms || []);
+      } catch (error) {
+        console.error('Error fetching available rooms:', error);
+        setRoomError(error instanceof Error ? error.message : 'ไม่สามารถตรวจสอบความพร้อมของห้องได้');
+        setAvailableRooms([]);
+      } finally {
+        setIsLoadingRooms(false);
+      }
     }
   };
 
@@ -165,9 +176,10 @@ export default function HomePage() {
               {startTime && endTime && !confirmedTimeSlot && (
                 <button
                   onClick={handleConfirmTime}
-                  className="w-full bg-indigo-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-indigo-700 transition-colors shadow-md hover:shadow-lg"
+                  disabled={isLoadingRooms}
+                  className="w-full bg-indigo-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-indigo-700 transition-colors shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  ยืนยันเวลา
+                  {isLoadingRooms ? 'กำลังตรวจสอบ...' : 'ยืนยันเวลา'}
                 </button>
               )}
               {confirmedTimeSlot && (
@@ -186,7 +198,21 @@ export default function HomePage() {
               <label className="block text-sm font-medium text-gray-700 mb-4">
                 ห้องที่ว่างในช่วงเวลา {confirmedTimeSlot}
               </label>
-              {availableRooms.length > 0 ? (
+              {isLoadingRooms ? (
+                <div className="text-center py-8 bg-gray-50 rounded-lg">
+                  <p className="text-gray-500">กำลังตรวจสอบความพร้อมของห้อง...</p>
+                </div>
+              ) : roomError ? (
+                <div className="text-center py-8 bg-red-50 rounded-lg border border-red-200">
+                  <p className="text-red-700">{roomError}</p>
+                  <button
+                    onClick={handleConfirmTime}
+                    className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                  >
+                    ลองอีกครั้ง
+                  </button>
+                </div>
+              ) : availableRooms.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {availableRooms.map((roomId) => {
                     const room = ROOMS.find(r => r.id === roomId);
