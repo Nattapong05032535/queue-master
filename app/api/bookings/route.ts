@@ -160,10 +160,18 @@ export async function POST(request: NextRequest) {
       );
     }
     
+    // Return detailed error for debugging
     return NextResponse.json(
       { 
         error: 'ไม่สามารถบันทึกข้อมูลได้',
-        details: error instanceof Error ? error.message : 'เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ'
+        details: error instanceof Error ? error.message : 'เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ',
+        errorType: error?.error || error?.name || 'Unknown',
+        statusCode: error?.statusCode,
+        // Only include full error in development
+        ...(process.env.NODE_ENV === 'development' && {
+          fullError: error?.toString(),
+          stack: error?.stack,
+        }),
       },
       { status: 500 }
     );

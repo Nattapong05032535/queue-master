@@ -1,11 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Airtable from 'airtable';
 
+// Validate environment variables at module load
+const AIRTABLE_API_KEY = process.env.AIRTABLE_API_KEY;
+const AIRTABLE_BASE_ID = process.env.AIRTABLE_BASE_ID;
+const AIRTABLE_TABLE_NAME = process.env.AIRTABLE_TABLE_NAME || 'Bookings';
+
 // Initialize Airtable with timeout configuration
-const base = new Airtable({
-  apiKey: process.env.AIRTABLE_API_KEY,
-  requestTimeout: 30000, // 30 seconds timeout
-}).base(process.env.AIRTABLE_BASE_ID || '');
+let base: Airtable.Base | null = null;
+if (AIRTABLE_API_KEY && AIRTABLE_BASE_ID) {
+  base = new Airtable({
+    apiKey: AIRTABLE_API_KEY,
+    requestTimeout: 30000, // 30 seconds timeout
+  }).base(AIRTABLE_BASE_ID);
+} else {
+  console.error('⚠️ Airtable environment variables not configured!');
+  console.error('Missing:', {
+    AIRTABLE_API_KEY: !AIRTABLE_API_KEY,
+    AIRTABLE_BASE_ID: !AIRTABLE_BASE_ID,
+  });
+}
 
 /**
  * Check if two time ranges overlap
@@ -69,9 +83,23 @@ export async function POST(request: NextRequest) {
       { id: 'room2', name: 'ห้องที่ 2' },
     ];
 
+    // Check if Airtable is configured
+    if (!base || !AIRTABLE_API_KEY || !AIRTABLE_BASE_ID) {
+      console.warn('⚠️ Airtable not configured, returning all rooms as available');
+      return NextResponse.json(
+        {
+          success: true,
+          availableRooms: allRooms.map(room => room.id),
+          rooms: allRooms,
+          warning: 'ไม่สามารถเชื่อมต่อกับ Airtable ได้ กำลังแสดงห้องทั้งหมด',
+        },
+        { status: 200 }
+      );
+    }
+
     try {
       // Fetch existing bookings from Airtable for the selected date
-      const table = base(process.env.AIRTABLE_TABLE_NAME || 'Bookings');
+      const table = base(AIRTABLE_TABLE_NAME);
       
       // Query bookings with Confirmed or Pending status
       // We'll filter by date in code since Airtable date format can vary
