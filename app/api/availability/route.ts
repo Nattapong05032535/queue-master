@@ -40,6 +40,8 @@ export async function GET(request: NextRequest) {
       // Format date to match Airtable format (YYYY-MM-DD)
       const dateValue = date.includes('T') ? date.split('T')[0] : date;
       
+      console.log(`Checking availability for date: ${dateValue}, timeSlot: ${timeSlot}`);
+      
       // Retry logic for network issues
       let records;
       let retries = 3;
@@ -48,17 +50,78 @@ export async function GET(request: NextRequest) {
       while (retries > 0) {
         try {
           // Query bookings that match the date and time slot
-          // Note: If Date field is Date type in Airtable, use DATE() function
-          // If Date field is Text type, use string comparison
-          records = await base(process.env.AIRTABLE_TABLE_NAME || 'Bookings')
-            .select({
-              filterByFormula: `AND(
-                {Date} = "${dateValue}",
+          // For Date field: If it's Date type, Airtable stores as YYYY-MM-DD internally
+          // We'll try to match by converting Date field to string
+          // Also try direct comparison for Text type fields
+          const dateFormats = [
+            `DATESTR({Date}) = "${dateValue}"`, // For Date type field - converts to YYYY-MM-DD string
+            `STRING({Date}) = "${dateValue}"`, // Alternative for Date type
+            `{Date} = "${dateValue}"`, // For Text type field (YYYY-MM-DD)
+            `{Date} = "${dateValue.replace(/-/g, '/')}"`, // For Text type field (YYYY/MM/DD)
+          ];
+          
+          // Try each format until one works
+          let querySuccess = false;
+          let lastFormatError: any = null;
+          
+          for (const dateFormat of dateFormats) {
+            try {
+              const formula = `AND(
+                ${dateFormat},
                 {Time Slot} = "${timeSlot}",
                 OR({Status} = "Pending", {Status} = "Confirmed")
-              )`,
-            })
-            .all();
+              )`;
+              
+              console.log(`Trying filter formula: ${formula}`);
+              
+              records = await base(process.env.AIRTABLE_TABLE_NAME || 'Bookings')
+                .select({
+                  filterByFormula: formula,
+                })
+                .all();
+              
+              querySuccess = true;
+              console.log(`Query successful! Found ${records.length} records with format: ${dateFormat}`);
+              break;
+            } catch (formatError: any) {
+              lastFormatError = formatError;
+              console.log(`Format failed: ${dateFormat}, error: ${formatError.message}`);
+              // Try next format
+              continue;
+            }
+          }
+          
+          if (!querySuccess) {
+            // If all formats fail, try querying all records and filter in code
+            console.log('All date format attempts failed, trying to query all records and filter in code...');
+            const allRecords = await base(process.env.AIRTABLE_TABLE_NAME || 'Bookings')
+              .select({
+                filterByFormula: `AND(
+                  {Time Slot} = "${timeSlot}",
+                  OR({Status} = "Pending", {Status} = "Confirmed")
+                )`,
+              })
+              .all();
+            
+            // Filter by date in code
+            records = allRecords.filter(record => {
+              const recordDate = record.get('Date');
+              if (!recordDate) return false;
+              
+              // Handle different date formats
+              const recordDateStr = typeof recordDate === 'string' 
+                ? recordDate 
+                : new Date(recordDate as string).toISOString().split('T')[0];
+              
+              const normalizedRecordDate = recordDateStr.replace(/\//g, '-');
+              const normalizedQueryDate = dateValue;
+              
+              return normalizedRecordDate === normalizedQueryDate;
+            });
+            
+            console.log(`Filtered ${records.length} records by date in code`);
+          }
+          
           break; // Success, exit retry loop
         } catch (error: any) {
           lastError = error;
@@ -82,7 +145,14 @@ export async function GET(request: NextRequest) {
 
       // Extract booked room IDs
       bookedRoomIds = records
-        .map(record => record.get('Room ID') as string)
+        .map(record => {
+          const roomId = record.get('Room ID') as string;
+          const recordDate = record.get('Date');
+          const recordTimeSlot = record.get('Time Slot');
+          const recordStatus = record.get('Status');
+          console.log(`Found booking: Room ID=${roomId}, Date=${recordDate}, Time Slot=${recordTimeSlot}, Status=${recordStatus}`);
+          return roomId;
+        })
         .filter((roomId): roomId is string => Boolean(roomId));
       
       console.log(`Found ${bookedRoomIds.length} booked rooms for ${dateValue} at ${timeSlot}:`, bookedRoomIds);
