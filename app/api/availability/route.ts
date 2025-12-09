@@ -16,18 +16,76 @@ const ALL_ROOMS = [
   { id: 'room2', name: 'ห้องที่ 2' },
 ];
 
+// Helper function to check if two time ranges overlap
+function timeRangesOverlap(start1: string, end1: string, start2: string, end2: string): boolean {
+  // Convert time strings (HH:MM) to minutes for easier comparison
+  const toMinutes = (time: string): number => {
+    const [hours, minutes] = time.split(':').map(Number);
+    return hours * 60 + minutes;
+  };
+  
+  const start1Min = toMinutes(start1);
+  const end1Min = toMinutes(end1);
+  const start2Min = toMinutes(start2);
+  const end2Min = toMinutes(end2);
+  
+  // Two ranges overlap if: start1 < end2 && start2 < end1
+  return start1Min < end2Min && start2Min < end1Min;
+}
+
+// Helper function to parse time slot (e.g., "10:00 - 12:00" -> { start: "10:00", end: "12:00" })
+function parseTimeSlot(timeSlot: string): { start: string; end: string } | null {
+  const match = timeSlot.match(/(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})/);
+  if (match) {
+    return { start: match[1], end: match[2] };
+  }
+  return null;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const date = searchParams.get('date');
     const timeSlot = searchParams.get('timeSlot');
+    const startTime = searchParams.get('startTime');
+    const endTime = searchParams.get('endTime');
 
     // Validate required parameters
-    if (!date || !timeSlot) {
+    if (!date || (!timeSlot && (!startTime || !endTime))) {
       return NextResponse.json(
         { 
           error: 'กรุณาระบุวันที่และช่วงเวลา',
-          details: 'ต้องระบุ date และ timeSlot'
+          details: 'ต้องระบุ date และ timeSlot หรือ startTime/endTime'
+        },
+        { status: 400 }
+      );
+    }
+
+    // Parse time range
+    let queryStartTime: string;
+    let queryEndTime: string;
+    
+    if (startTime && endTime) {
+      queryStartTime = startTime;
+      queryEndTime = endTime;
+    } else if (timeSlot) {
+      const parsed = parseTimeSlot(timeSlot);
+      if (!parsed) {
+        return NextResponse.json(
+          { 
+            error: 'รูปแบบ Time Slot ไม่ถูกต้อง',
+            details: 'ต้องเป็นรูปแบบ "HH:MM - HH:MM"'
+          },
+          { status: 400 }
+        );
+      }
+      queryStartTime = parsed.start;
+      queryEndTime = parsed.end;
+    } else {
+      return NextResponse.json(
+        { 
+          error: 'กรุณาระบุช่วงเวลา',
+          details: 'ต้องระบุ timeSlot หรือ startTime/endTime'
         },
         { status: 400 }
       );
@@ -40,7 +98,7 @@ export async function GET(request: NextRequest) {
       // Format date to match Airtable format (YYYY-MM-DD)
       const dateValue = date.includes('T') ? date.split('T')[0] : date;
       
-      console.log(`Checking availability for date: ${dateValue}, timeSlot: ${timeSlot}`);
+      console.log(`Checking availability for date: ${dateValue}, time range: ${queryStartTime} - ${queryEndTime}`);
       
       // Retry logic for network issues
       let records;
@@ -66,9 +124,9 @@ export async function GET(request: NextRequest) {
           
           for (const dateFormat of dateFormats) {
             try {
+              // Query all bookings on this date (we'll check time overlap in code)
               const formula = `AND(
                 ${dateFormat},
-                {Time Slot} = "${timeSlot}",
                 OR({Status} = "Pending", {Status} = "Confirmed")
               )`;
               
@@ -96,10 +154,7 @@ export async function GET(request: NextRequest) {
             console.log('All date format attempts failed, trying to query all records and filter in code...');
             const allRecords = await base(process.env.AIRTABLE_TABLE_NAME || 'Bookings')
               .select({
-                filterByFormula: `AND(
-                  {Time Slot} = "${timeSlot}",
-                  OR({Status} = "Pending", {Status} = "Confirmed")
-                )`,
+                filterByFormula: `OR({Status} = "Pending", {Status} = "Confirmed")`,
               })
               .all();
             
@@ -132,6 +187,47 @@ export async function GET(request: NextRequest) {
             console.log(`Filtered ${records.length} records by date in code`);
           }
           
+          // Now filter by time overlap in code
+          const overlappingRecords = records.filter(record => {
+            const recordTimeSlot = record.get('Time Slot') as string;
+            if (!recordTimeSlot) return false;
+            
+            // Try to get Start Time and End Time fields if available
+            const recordStartTime = record.get('Start Time') as string;
+            const recordEndTime = record.get('End Time') as string;
+            
+            let bookingStartTime: string;
+            let bookingEndTime: string;
+            
+            if (recordStartTime && recordEndTime) {
+              bookingStartTime = recordStartTime;
+              bookingEndTime = recordEndTime;
+            } else {
+              // Parse from Time Slot field
+              const parsed = parseTimeSlot(recordTimeSlot);
+              if (!parsed) return false;
+              bookingStartTime = parsed.start;
+              bookingEndTime = parsed.end;
+            }
+            
+            // Check if time ranges overlap
+            const overlaps = timeRangesOverlap(
+              queryStartTime,
+              queryEndTime,
+              bookingStartTime,
+              bookingEndTime
+            );
+            
+            if (overlaps) {
+              console.log(`Time overlap found: ${bookingStartTime}-${bookingEndTime} overlaps with ${queryStartTime}-${queryEndTime}`);
+            }
+            
+            return overlaps;
+          });
+          
+          records = overlappingRecords;
+          console.log(`Found ${records.length} overlapping bookings after time check`);
+          
           break; // Success, exit retry loop
         } catch (error: any) {
           lastError = error;
@@ -153,19 +249,19 @@ export async function GET(request: NextRequest) {
         throw lastError;
       }
 
-      // Extract booked room IDs
+      // Extract booked room IDs from overlapping bookings
       bookedRoomIds = records
         .map(record => {
           const roomId = record.get('Room ID') as string;
           const recordDate = record.get('Date');
           const recordTimeSlot = record.get('Time Slot');
           const recordStatus = record.get('Status');
-          console.log(`Found booking: Room ID=${roomId}, Date=${recordDate}, Time Slot=${recordTimeSlot}, Status=${recordStatus}`);
+          console.log(`Found overlapping booking: Room ID=${roomId}, Date=${recordDate}, Time Slot=${recordTimeSlot}, Status=${recordStatus}`);
           return roomId;
         })
         .filter((roomId): roomId is string => Boolean(roomId));
       
-      console.log(`Found ${bookedRoomIds.length} booked rooms for ${dateValue} at ${timeSlot}:`, bookedRoomIds);
+      console.log(`Found ${bookedRoomIds.length} booked rooms for ${dateValue} at ${queryStartTime}-${queryEndTime}:`, bookedRoomIds);
     } catch (error: any) {
       console.error('Error querying Airtable:', error);
       // If query fails, return empty array (no rooms available) for safety

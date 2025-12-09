@@ -65,9 +65,9 @@ export default function HomePage() {
         // Format date to YYYY-MM-DD
         const dateValue = selectedDate.includes('T') ? selectedDate.split('T')[0] : selectedDate;
         
-        // Fetch available rooms from API
+        // Fetch available rooms from API (send both timeSlot and startTime/endTime for overlap checking)
         const response = await fetch(
-          `/api/availability?date=${encodeURIComponent(dateValue)}&timeSlot=${encodeURIComponent(timeSlot)}`
+          `/api/availability?date=${encodeURIComponent(dateValue)}&timeSlot=${encodeURIComponent(timeSlot)}&startTime=${encodeURIComponent(startTime)}&endTime=${encodeURIComponent(endTime)}`
         );
         
         const data = await response.json();
