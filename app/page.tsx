@@ -3,14 +3,10 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
-// Mock data for room availability
-const TIME_SLOTS = [
-  '10:00 - 12:00',
-  '12:00 - 14:00',
-  '14:00 - 16:00',
-  '16:00 - 18:00',
-  '18:00 - 20:00',
-  '20:00 - 22:00',
+// Time options for dropdowns
+const TIME_OPTIONS = [
+  '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00',
+  '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00', '23:00',
 ];
 
 const ROOMS = [
@@ -18,8 +14,28 @@ const ROOMS = [
   { id: 'room2', name: 'ห้องที่ 2' },
 ];
 
+// Generate date options (next 30 days)
+const generateDateOptions = () => {
+  const dates = [];
+  const today = new Date();
+  for (let i = 0; i < 30; i++) {
+    const date = new Date(today);
+    date.setDate(today.getDate() + i);
+    const dateStr = date.toISOString().split('T')[0];
+    const formattedDate = date.toLocaleDateString('th-TH', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+    dates.push({ value: dateStr, label: formattedDate });
+  }
+  return dates;
+};
+
 // Mock availability data - in real app, this would come from API
-const getAvailableRooms = (timeSlot: string): string[] => {
+const getAvailableRooms = (date: string, startTime: string, endTime: string): string[] => {
+  const timeSlot = `${startTime} - ${endTime}`;
   // Simulate availability - you can modify this logic
   const mockAvailability: Record<string, string[]> = {
     '10:00 - 12:00': ['room1', 'room2'],
@@ -34,26 +50,44 @@ const getAvailableRooms = (timeSlot: string): string[] => {
 
 export default function HomePage() {
   const router = useRouter();
-  const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>('');
+  const [selectedDate, setSelectedDate] = useState<string>('');
+  const [startTime, setStartTime] = useState<string>('');
+  const [endTime, setEndTime] = useState<string>('');
+  const [confirmedTimeSlot, setConfirmedTimeSlot] = useState<string>('');
   const [availableRooms, setAvailableRooms] = useState<string[]>([]);
   const [selectedRoom, setSelectedRoom] = useState<string>('');
 
+  const dateOptions = generateDateOptions();
+
   useEffect(() => {
-    if (selectedTimeSlot) {
-      const rooms = getAvailableRooms(selectedTimeSlot);
+    // Reset confirmed time slot when date or times change
+    setConfirmedTimeSlot('');
+    setAvailableRooms([]);
+    setSelectedRoom('');
+  }, [selectedDate, startTime, endTime]);
+
+  const handleConfirmTime = () => {
+    if (selectedDate && startTime && endTime) {
+      if (startTime >= endTime) {
+        alert('เวลาเริ่มต้นต้องน้อยกว่าเวลาสิ้นสุด');
+        return;
+      }
+      const timeSlot = `${startTime} - ${endTime}`;
+      setConfirmedTimeSlot(timeSlot);
+      const rooms = getAvailableRooms(selectedDate, startTime, endTime);
       setAvailableRooms(rooms);
-      setSelectedRoom(''); // Reset room selection when time changes
-    } else {
-      setAvailableRooms([]);
       setSelectedRoom('');
     }
-  }, [selectedTimeSlot]);
+  };
 
   const handleContinue = () => {
-    if (selectedTimeSlot && selectedRoom) {
+    if (confirmedTimeSlot && selectedRoom && selectedDate) {
       // Store selection in sessionStorage to pass to next page
       sessionStorage.setItem('bookingData', JSON.stringify({
-        timeSlot: selectedTimeSlot,
+        date: selectedDate,
+        timeSlot: confirmedTimeSlot,
+        startTime,
+        endTime,
         roomId: selectedRoom,
         roomName: ROOMS.find(r => r.id === selectedRoom)?.name || '',
       }));
@@ -72,31 +106,93 @@ export default function HomePage() {
         <div className="bg-white rounded-lg shadow-xl p-8">
           <h2 className="text-2xl font-semibold text-gray-800 mb-6">เลือกช่วงเวลาและห้อง</h2>
 
-          {/* Time Slot Selection */}
-          <div className="mb-8">
-            <label htmlFor="timeSlot" className="block text-sm font-medium text-gray-700 mb-2">
-              เลือกช่วงเวลา
+          {/* Date Selection */}
+          <div className="mb-6">
+            <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-2">
+              เลือกวันที่
             </label>
             <select
-              id="timeSlot"
-              value={selectedTimeSlot}
-              onChange={(e) => setSelectedTimeSlot(e.target.value)}
+              id="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-lg"
             >
-              <option value="">-- เลือกช่วงเวลา --</option>
-              {TIME_SLOTS.map((slot) => (
-                <option key={slot} value={slot}>
-                  {slot}
+              <option value="">-- เลือกวันที่ --</option>
+              {dateOptions.map((date) => (
+                <option key={date.value} value={date.value}>
+                  {date.label}
                 </option>
               ))}
             </select>
           </div>
 
+          {/* Time Selection */}
+          {selectedDate && (
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                เลือกเวลา
+              </label>
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label htmlFor="startTime" className="block text-xs text-gray-600 mb-1">
+                    เวลาเริ่มต้น
+                  </label>
+                  <select
+                    id="startTime"
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-lg"
+                  >
+                    <option value="">-- เลือกเวลา --</option>
+                    {TIME_OPTIONS.map((time) => (
+                      <option key={time} value={time}>
+                        {time}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="endTime" className="block text-xs text-gray-600 mb-1">
+                    เวลาสิ้นสุด
+                  </label>
+                  <select
+                    id="endTime"
+                    value={endTime}
+                    onChange={(e) => setEndTime(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-lg"
+                  >
+                    <option value="">-- เลือกเวลา --</option>
+                    {TIME_OPTIONS.map((time) => (
+                      <option key={time} value={time}>
+                        {time}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              {startTime && endTime && !confirmedTimeSlot && (
+                <button
+                  onClick={handleConfirmTime}
+                  className="w-full bg-indigo-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-indigo-700 transition-colors shadow-md hover:shadow-lg"
+                >
+                  ยืนยันเวลา
+                </button>
+              )}
+              {confirmedTimeSlot && (
+                <div className="mt-4 p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
+                  <p className="text-sm text-indigo-700">
+                    <span className="font-semibold">เวลาที่เลือก:</span> {confirmedTimeSlot}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Available Rooms */}
-          {selectedTimeSlot && (
+          {confirmedTimeSlot && (
             <div className="mb-8">
               <label className="block text-sm font-medium text-gray-700 mb-4">
-                ห้องที่ว่างในช่วงเวลา {selectedTimeSlot}
+                ห้องที่ว่างในช่วงเวลา {confirmedTimeSlot}
               </label>
               {availableRooms.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -137,7 +233,7 @@ export default function HomePage() {
           )}
 
           {/* Continue Button */}
-          {selectedTimeSlot && selectedRoom && (
+          {confirmedTimeSlot && selectedRoom && (
             <div className="mt-8">
               <button
                 onClick={handleContinue}
