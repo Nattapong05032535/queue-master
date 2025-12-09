@@ -212,9 +212,9 @@ export default function BookingPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 flex items-center justify-center py-12 px-4">
         <div className="bg-white rounded-lg shadow-xl p-8 max-w-md w-full text-center">
-          <div className="text-6xl mb-4">✅</div>
+          <div className="text-6xl mb-4">🎵</div>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">บันทึกข้อมูลสำเร็จ!</h2>
-          <p className="text-gray-600 mb-4">ข้อมูลการจองของคุณถูกบันทึกเรียบร้อยแล้ว</p>
+          <p className="text-gray-600 mb-4">ข้อมูลการจองห้องซ้อมดนตรีของคุณถูกบันทึกเรียบร้อยแล้ว</p>
           <p className="text-sm text-gray-500">กำลังกลับไปหน้าแรก...</p>
         </div>
       </div>
@@ -226,7 +226,7 @@ export default function BookingPage() {
       <div className="max-w-2xl mx-auto">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-2">กรอกข้อมูลการจอง</h1>
-          <p className="text-lg text-gray-600">กรุณากรอกข้อมูลเพิ่มเติมเพื่อลงทะเบียนจองห้อง</p>
+          <p className="text-lg text-gray-600">กรุณากรอกข้อมูลเพิ่มเติมเพื่อลงทะเบียนจองห้องซ้อมดนตรี</p>
         </div>
 
         <div className="bg-white rounded-lg shadow-xl p-8">

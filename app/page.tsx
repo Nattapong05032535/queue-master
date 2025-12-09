@@ -10,8 +10,8 @@ const TIME_OPTIONS = [
 ];
 
 const ROOMS = [
-  { id: 'room1', name: 'ห้องที่ 1' },
-  { id: 'room2', name: 'ห้องที่ 2' },
+  { id: 'room1', name: 'ห้องซ้อมดนตรีที่ 1' },
+  { id: 'room2', name: 'ห้องซ้อมดนตรีที่ 2' },
 ];
 
 // Get minimum date (today)
@@ -107,7 +107,7 @@ export default function HomePage() {
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-2">Queue Master</h1>
-          <p className="text-lg text-gray-600">ระบบจองห้องสำหรับร้านอาหาร</p>
+          <p className="text-lg text-gray-600">ระบบจองห้องซ้อมดนตรี</p>
         </div>
 
         <div className="bg-white rounded-lg shadow-xl p-8">
@@ -229,7 +229,7 @@ export default function HomePage() {
                       >
                         <div className="text-center">
                           <div className={`text-2xl mb-2 ${isSelected ? 'text-indigo-600' : 'text-gray-600'}`}>
-                            🏠
+                            🎵
                           </div>
                           <div className={`font-semibold ${isSelected ? 'text-indigo-700' : 'text-gray-700'}`}>
                             {room?.name}

@@ -12,8 +12,8 @@ const base = new Airtable({
 
 // All available rooms
 const ALL_ROOMS = [
-  { id: 'room1', name: 'ห้องที่ 1' },
-  { id: 'room2', name: 'ห้องที่ 2' },
+  { id: 'room1', name: 'ห้องซ้อมดนตรีที่ 1' },
+  { id: 'room2', name: 'ห้องซ้อมดนตรีที่ 2' },
 ];
 
 // Helper function to check if two time ranges overlap

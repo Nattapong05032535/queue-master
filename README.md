@@ -1,6 +1,6 @@
-# Queue Master - Restaurant Room Booking System
+# Queue Master - Music Practice Room Booking System
 
-ระบบจองห้องสำหรับร้านอาหารที่สร้างด้วย Next.js 14, TypeScript, และ TailwindCSS
+ระบบจองห้องซ้อมดนตรีที่สร้างด้วย Next.js 14, TypeScript, และ TailwindCSS
 
 ## Features
 
