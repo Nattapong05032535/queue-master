@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Airtable from 'airtable';
 
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic';
+
 // Initialize Airtable with timeout configuration
 const base = new Airtable({
   apiKey: process.env.AIRTABLE_API_KEY,
