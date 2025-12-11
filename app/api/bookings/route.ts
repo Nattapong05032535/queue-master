@@ -125,6 +125,79 @@ export async function POST(request: NextRequest) {
       throw lastError;
     }
 
+    // Send notification to LINE Official Account after successful booking
+    try {
+      // Calculate hours if startTime and endTime are provided
+      let hours: number | undefined;
+      if (startTime && endTime) {
+        const [startHour, startMin] = startTime.split(':').map(Number);
+        const [endHour, endMin] = endTime.split(':').map(Number);
+        const startMinutes = startHour * 60 + startMin;
+        const endMinutes = endHour * 60 + endMin;
+        hours = (endMinutes - startMinutes) / 60;
+      }
+
+      // Fetch room price from Airtable directly
+      let roomPricePerHour: number | undefined;
+      try {
+        const roomRecords = await base('Rooms')
+          .select({
+            filterByFormula: `{Room ID} = "${roomId}"`,
+            maxRecords: 1,
+          })
+          .all();
+        
+        if (roomRecords && roomRecords.length > 0) {
+          roomPricePerHour = roomRecords[0].get('Price Per Hour') as number;
+        }
+      } catch (roomError) {
+        console.error('Error fetching room price for LINE notification:', roomError);
+        // Continue without room price
+      }
+
+      // Get booking type additional price from request body if available
+      const bookingTypeAdditionalPrice = body.bookingTypeAdditionalPrice;
+
+      const lineNotificationData = {
+        firstName,
+        lastName,
+        date: date || '',
+        bookingTypeName: bookingTypeName || undefined,
+        timeSlot,
+        roomName: roomName || '',
+        totalPrice: totalPrice || 0,
+        receiptUrl: receiptUrl || undefined,
+        hours,
+        roomPrice: roomPricePerHour,
+        additionalPrice: bookingTypeAdditionalPrice || undefined,
+      };
+
+      // Get LINE User ID from environment variable or request body
+      const lineUserId = process.env.LINE_USER_ID || body.lineUserId;
+
+      if (lineUserId) {
+        // Call LINE OA API (don't wait for response to avoid blocking)
+        fetch('/api/line-oa', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            bookingData: lineNotificationData,
+            userId: lineUserId,
+          }),
+        }).catch((lineError) => {
+          // Log error but don't fail the booking
+          console.error('Failed to send LINE notification:', lineError);
+        });
+      } else {
+        console.log('LINE_USER_ID not set - skipping LINE notification');
+      }
+    } catch (lineError) {
+      // Log error but don't fail the booking
+      console.error('Error preparing LINE notification:', lineError);
+    }
+
     return NextResponse.json(
       { success: true, recordId: records[0].id },
       { status: 200 }
