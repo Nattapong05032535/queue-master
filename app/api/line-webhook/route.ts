@@ -8,11 +8,6 @@ export const dynamic = 'force-dynamic';
 // In production, you should use a database
 let storedUserIds: Set<string> = new Set();
 
-// Export function to get stored User IDs
-export function getStoredUserIds(): string[] {
-  return Array.from(storedUserIds);
-}
-
 interface LineWebhookEvent {
   type: string;
   source: {
