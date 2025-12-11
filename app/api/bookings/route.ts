@@ -128,6 +128,8 @@ export async function POST(request: NextRequest) {
     // Send notification to LINE Official Account after successful booking
     try {
       // Get LINE credentials
+      // LINE_USER_ID คือ User ID ของ admin/เจ้าของระบบที่จะรับการแจ้งเตือน
+      // ไม่ใช่ User ID ของลูกค้า (ลูกค้าไม่ต้องมี LINE OA)
       const lineChannelAccessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
       const lineUserId = process.env.LINE_USER_ID || body.lineUserId;
 
@@ -206,25 +208,56 @@ export async function POST(request: NextRequest) {
         
         message += `\n\n⏰ เวลาที่ทำรายการ: ${new Date().toLocaleString('th-TH')}`;
 
-        // Prepare LINE message payload
-        const linePayload: any = {
-          to: lineUserId,
-          messages: [
-            {
-              type: 'text',
-              text: message,
-            },
-          ],
-        };
+        // Get record ID for updating status later
+        const recordId = records[0].id;
 
-        // If receipt URL exists, add image message
+        // Prepare LINE message payload with buttons
+        // First send text message
+        const messages: any[] = [
+          {
+            type: 'text',
+            text: message,
+          },
+        ];
+
+        // Add receipt image if exists
         if (receiptUrl) {
-          linePayload.messages.push({
+          messages.push({
             type: 'image',
             originalContentUrl: receiptUrl,
             previewImageUrl: receiptUrl,
           });
         }
+
+        // Add template message with approve/cancel buttons
+        // Using postback action to send data back to webhook
+        messages.push({
+          type: 'template',
+          altText: 'กรุณาเลือกอนุมัติหรือยกเลิกการจอง',
+          template: {
+            type: 'buttons',
+            text: 'กรุณาเลือกอนุมัติหรือยกเลิกการจอง',
+            actions: [
+              {
+                type: 'postback',
+                label: '✅ อนุมัติ',
+                data: `action=approve&recordId=${recordId}`,
+                displayText: 'อนุมัติการจอง',
+              },
+              {
+                type: 'postback',
+                label: '❌ ยกเลิก',
+                data: `action=cancel&recordId=${recordId}`,
+                displayText: 'ยกเลิกการจอง',
+              },
+            ],
+          },
+        });
+
+        const linePayload: any = {
+          to: lineUserId,
+          messages: messages,
+        };
 
         // Send to LINE Messaging API (don't wait for response to avoid blocking)
         fetch('https://api.line.me/v2/bot/message/push', {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
+import Airtable from 'airtable';
 
 // Force dynamic rendering for webhook
 export const dynamic = 'force-dynamic';
@@ -7,6 +8,12 @@ export const dynamic = 'force-dynamic';
 // Simple in-memory storage for User IDs
 // In production, you should use a database
 let storedUserIds: Set<string> = new Set();
+
+// Initialize Airtable for updating booking status
+const airtableBase = new Airtable({
+  apiKey: process.env.AIRTABLE_API_KEY,
+  requestTimeout: 30000,
+}).base(process.env.AIRTABLE_BASE_ID || '');
 
 interface LineWebhookEvent {
   type: string;
@@ -146,6 +153,94 @@ export async function POST(request: NextRequest) {
             });
           } catch (replyError) {
             console.error('Error replying to follow event:', replyError);
+          }
+        }
+      }
+
+      // Handle postback event (when user clicks button)
+      if (event.type === 'postback') {
+        const postbackData = (event as any).postback?.data;
+        const replyToken = (event as any).replyToken;
+        const channelAccessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+
+        if (postbackData && replyToken && channelAccessToken) {
+          try {
+            // Parse postback data: action=approve&recordId=xxx
+            const params = new URLSearchParams(postbackData);
+            const action = params.get('action');
+            const recordId = params.get('recordId');
+
+            console.log(`📥 Received postback: action=${action}, recordId=${recordId}`);
+
+            if (action && recordId) {
+              let newStatus: string;
+              let statusMessage: string;
+
+              if (action === 'approve') {
+                newStatus = 'Confirmed';
+                statusMessage = '✅ อนุมัติการจองเรียบร้อยแล้ว';
+              } else if (action === 'cancel') {
+                newStatus = 'Cancelled';
+                statusMessage = '❌ ยกเลิกการจองเรียบร้อยแล้ว';
+              } else {
+                console.error('Unknown action:', action);
+                return NextResponse.json({ success: false, error: 'Unknown action' }, { status: 400 });
+              }
+
+              // Update status in Airtable
+              try {
+                await airtableBase(process.env.AIRTABLE_TABLE_NAME || 'Bookings').update([
+                  {
+                    id: recordId,
+                    fields: {
+                      'Status': newStatus,
+                    },
+                  },
+                ]);
+
+                console.log(`✅ Updated booking ${recordId} status to ${newStatus}`);
+
+                // Reply to LINE user
+                await fetch('https://api.line.me/v2/bot/message/reply', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${channelAccessToken}`,
+                  },
+                  body: JSON.stringify({
+                    replyToken,
+                    messages: [
+                      {
+                        type: 'text',
+                        text: statusMessage,
+                      },
+                    ],
+                  }),
+                });
+              } catch (airtableError: any) {
+                console.error('Error updating Airtable:', airtableError);
+                
+                // Reply error to LINE user
+                await fetch('https://api.line.me/v2/bot/message/reply', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${channelAccessToken}`,
+                  },
+                  body: JSON.stringify({
+                    replyToken,
+                    messages: [
+                      {
+                        type: 'text',
+                        text: '❌ เกิดข้อผิดพลาดในการอัพเดทสถานะ กรุณาลองอีกครั้ง',
+                      },
+                    ],
+                  }),
+                });
+              }
+            }
+          } catch (postbackError) {
+            console.error('Error processing postback:', postbackError);
           }
         }
       }
