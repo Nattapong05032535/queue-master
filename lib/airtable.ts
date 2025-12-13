@@ -46,6 +46,24 @@ export async function getStudentsByReferenceId(refid: string): Promise<StudentRe
   }
 }
 
+export async function getAllStudents(): Promise<StudentRecord[]> {
+  try {
+    const records = await base(TABLE_NAME).select({
+      view: 'Grid view', // Verify view name or remove if strict filtering not needed
+      fields: ['full_name', 'name_class', 'uuid', 'is_update', 'nickname'], // Fetch only necessary fields
+      sort: [{ field: 'uuid', direction: 'asc' }]
+    }).all();
+
+    return records.map(record => ({
+      id: record.id,
+      fields: record.fields as StudentRecord['fields'],
+    }));
+  } catch (error) {
+    console.error('Error fetching all students:', error);
+    return [];
+  }
+}
+
 export async function updateStudentInAirtable(recordId: string, data: Partial<StudentRecord['fields']>) {
   try {
     // Force is_update to true as per workflow requirements
