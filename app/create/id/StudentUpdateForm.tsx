@@ -2,7 +2,7 @@
 
 import { useFormStatus, useFormState } from 'react-dom';
 import { updateStudent } from '@/app/actions';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 // Submit button component for pending state
 function SubmitButton({ disabled }: { disabled: boolean }) {
@@ -57,9 +57,35 @@ const initialState = {
   message: '',
 };
 
-export default function StudentUpdateForm({ student }: { student: StudentData }) {
+export default function StudentUpdateForm({ student, billingTemplate }: { student: StudentData, billingTemplate?: StudentData }) {
   const [state, formAction] = useFormState(updateStudent, initialState);
   const isReadOnly = student.fields.is_update === true || state.success;
+
+  // State for billing fields to allow auto-fill
+  const [billingData, setBillingData] = useState({
+    company_name: student.fields.company_name || '',
+    taxpayer_name: student.fields.taxpayer_name || '',
+    tax_id: student.fields.tax_id || '',
+    bill_email: student.fields.bill_email || '',
+    tax_addres: student.fields.tax_addres || '',
+  });
+
+  const handleCopyBilling = () => {
+    if (billingTemplate) {
+      setBillingData({
+        company_name: billingTemplate.fields.company_name || '',
+        taxpayer_name: billingTemplate.fields.taxpayer_name || '',
+        tax_id: billingTemplate.fields.tax_id || '',
+        bill_email: billingTemplate.fields.bill_email || '',
+        tax_addres: billingTemplate.fields.tax_addres || '',
+      });
+    }
+  };
+
+  const handleBillingChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setBillingData(prev => ({ ...prev, [name]: value }));
+  };
 
   return (
     <div className="bg-white p-8">
@@ -116,34 +142,52 @@ export default function StudentUpdateForm({ student }: { student: StudentData })
 
         {/* Billing Info */}
         <section>
-          <h3 className="text-sm font-semibold text-slate-700 mb-4 pb-2 border-b border-slate-200">
-            ข้อมูลใบกำกับภาษี
-          </h3>
+          <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-200">
+            <h3 className="text-sm font-semibold text-slate-700">
+              ข้อมูลใบกำกับภาษี
+            </h3>
+            {billingTemplate && !isReadOnly && billingTemplate.id !== student.id && (
+              <button
+                type="button"
+                onClick={handleCopyBilling}
+                className="text-xs flex items-center gap-1.5 text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-md transition-colors font-medium"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
+                </svg>
+                ใช้ข้อมูลเดิมที่มีในระบบ
+              </button>
+            )}
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <InputField
               label="ชื่อบริษัท"
               name="company_name"
-              defaultValue={student.fields.company_name}
+              value={billingData.company_name}
+              onChange={handleBillingChange}
               disabled={isReadOnly}
               placeholder="ถ้ามี"
             />
             <InputField
               label="ชื่อผู้เสียภาษี"
               name="taxpayer_name"
-              defaultValue={student.fields.taxpayer_name}
+              value={billingData.taxpayer_name}
+              onChange={handleBillingChange}
               disabled={isReadOnly}
             />
             <InputField
               label="เลขประจำตัวผู้เสียภาษี"
               name="tax_id"
-              defaultValue={student.fields.tax_id}
+              value={billingData.tax_id}
+              onChange={handleBillingChange}
               disabled={isReadOnly}
             />
             <InputField
               label="อีเมลรับบิล"
               name="bill_email"
               type="email"
-              defaultValue={student.fields.bill_email}
+              value={billingData.bill_email}
+              onChange={handleBillingChange}
               disabled={isReadOnly}
             />
 
@@ -151,7 +195,8 @@ export default function StudentUpdateForm({ student }: { student: StudentData })
               <label className="block text-sm font-medium text-slate-700 mb-2">ที่อยู่ใบกำกับภาษี</label>
               <textarea
                 name="tax_addres"
-                defaultValue={student.fields.tax_addres}
+                value={billingData.tax_addres}
+                onChange={handleBillingChange}
                 disabled={isReadOnly}
                 rows={3}
                 placeholder="ที่อยู่สำหรับออกใบกำกับภาษี..."
@@ -189,19 +234,6 @@ export default function StudentUpdateForm({ student }: { student: StudentData })
                 `}
               />
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">เอกสารแนบ</label>
-              <div className="border-2 border-dashed border-slate-200 rounded-lg p-6 text-center hover:border-slate-300 transition-colors">
-                <div className="text-slate-400 text-sm">
-                  <svg className="w-8 h-8 mx-auto mb-2 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                  </svg>
-                  <div>คลิกเพื่ออัปโหลดเอกสาร</div>
-                  <div className="text-xs text-slate-400 mt-1">(ระบบกำลังพัฒนา)</div>
-                </div>
-              </div>
-            </div>
           </div>
         </section>
 
@@ -218,6 +250,8 @@ function InputField({
   name,
   type = "text",
   defaultValue,
+  value,
+  onChange,
   disabled,
   placeholder
 }: {
@@ -225,6 +259,8 @@ function InputField({
   name: string;
   type?: string;
   defaultValue?: string;
+  value?: string;
+  onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
   disabled: boolean;
   placeholder?: string;
 }) {
@@ -235,6 +271,8 @@ function InputField({
         type={type}
         name={name}
         defaultValue={defaultValue}
+        value={value}
+        onChange={onChange}
         disabled={disabled}
         placeholder={placeholder}
         className={`
