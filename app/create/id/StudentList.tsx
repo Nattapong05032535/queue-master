@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import StudentUpdateForm from './StudentUpdateForm';
+import { formatDate } from '@/lib/utils';
 
 interface StudentData {
   id: string;
@@ -10,6 +11,7 @@ interface StudentData {
     full_name?: string;
     nickname?: string;
     name_class?: string;
+    date?: string;
     company_name?: string;
     taxpayer_name?: string;
     tax_id?: string;
@@ -57,7 +59,7 @@ export default function StudentList({ students }: { students: StudentData[] }) {
           <div className="flex flex-wrap items-center gap-2 text-xs font-medium">
             <div className="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center gap-1.5 shadow-sm">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-              ยืนยันแล้ว: <span className="font-bold">{completed}</span>
+              ส่งแล้ว: <span className="font-bold">{completed}</span>
             </div>
             <div className="px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 border border-amber-100 flex items-center gap-1.5 shadow-sm">
               <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
@@ -113,16 +115,22 @@ export default function StudentList({ students }: { students: StudentData[] }) {
 
                       <span className="hidden sm:inline-block text-slate-300"> | </span>
 
+                      <div className="flex items-center gap-2 text-slate-600">
+                        <span>{formatDate(student.fields.date)}</span>
+                      </div>
+
+                      <span className="hidden sm:inline-block text-slate-300"> | </span>
+
                       <div>
                         {isCompleted ? (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100 uppercase tracking-wide">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                            ยืนยันแล้ว
+                            ส่งแล้ว
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-100 uppercase tracking-wide">
                             <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-                            รอตรวจสอบ
+                            ยังไม่ส่ง
                           </span>
                         )}
                       </div>

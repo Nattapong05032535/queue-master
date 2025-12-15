@@ -25,7 +25,7 @@ export interface StudentRecord {
     remark?: string;
     is_update?: boolean;
     is_email_sent?: 'success' | 'fail' | 'pending';
-    // Document field omitted for initial implementation as it requires file hosting
+    Document?: { url: string; filename: string }[]; // Changed to Capitalized 'Document'
   };
 }
 
@@ -52,7 +52,7 @@ export async function getAllStudents(): Promise<StudentRecord[]> {
   try {
     const records = await base(TABLE_NAME).select({
       view: 'Grid view', // Verify view name or remove if strict filtering not needed
-      fields: ['id', 'full_name', 'name_class', 'uuid', 'is_update', 'nickname', 'is_email_sent'], // Fetch only necessary fields
+      fields: ['id', 'full_name', 'name_class', 'uuid', 'is_update', 'nickname', 'is_email_sent', 'date'], // Fetch only necessary fields
       sort: [{ field: 'uuid', direction: 'asc' }]
     }).all();
 
@@ -87,7 +87,7 @@ export async function updateStudentInAirtable(recordId: string, data: Partial<St
       is_update: true
     };
 
-    const record = await base(TABLE_NAME).update(recordId, updateData);
+    const record = await base(TABLE_NAME).update(recordId, updateData as any);
     return { success: true, record };
   } catch (error) {
     console.error('Error updating student in Airtable:', error);

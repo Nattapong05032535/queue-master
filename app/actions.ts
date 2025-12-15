@@ -3,6 +3,14 @@
 import { revalidatePath } from 'next/cache';
 import { updateStudentInAirtable, updateEmailStatus } from '@/lib/airtable';
 import nodemailer from 'nodemailer';
+import { v2 as cloudinary } from 'cloudinary';
+
+// Configure Cloudinary (Hardcoded as requested for immediate task, ideally move to env)
+cloudinary.config({ 
+  cloud_name: 'dl9wvlkkk', 
+  api_key: '112138484749645', 
+  api_secret: 'xFnFZsCjNp3xh8x6o1r02zpr-so' 
+});
 
 const transporter = nodemailer.createTransport({
   service: 'gmail',
@@ -72,13 +80,46 @@ export async function sendEmailWithAttachment(prevState: any, formData: FormData
     // 1. Update Student Data First
     await updateStudentInAirtable(recordId, data);
 
-    // 2. Prepare Attachment
+    // 2. Prepare Attachment and Upload to Cloudinary
     let attachments = [];
+    let fileUrl = '';
+
     if (file && file.size > 0) {
       const arrayBuffer = await file.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+
+      // Upload to Cloudinary
+      try {
+        const cloudinaryResult = await new Promise((resolve, reject) => {
+          cloudinary.uploader.upload_stream(
+            { 
+              folder: 'documents',
+              resource_type: 'auto' 
+            },
+            (error: any, result: any) => {
+              if (error) reject(error);
+              else resolve(result);
+            }
+          ).end(buffer);
+        }) as any;
+
+        if (cloudinaryResult?.secure_url) {
+          fileUrl = cloudinaryResult.secure_url;
+          
+          // Update Airtable document field
+          await updateStudentInAirtable(recordId, {
+            Document: [{ url: fileUrl, filename: file.name }]
+          });
+        }
+      } catch (uploadError) {
+        console.error('Cloudinary Upload Error:', uploadError);
+        // Continue even if upload fails? Or fail? 
+        // For now, logged it. Email attachment uses Buffer so it should still work.
+      }
+
       attachments.push({
         filename: file.name,
-        content: Buffer.from(arrayBuffer),
+        content: buffer,
       });
     }
 
