@@ -9,6 +9,7 @@ export const base = new Airtable({
   requestTimeout: 60000, // 60 seconds timeout (increased for better reliability)
 }).base(process.env.AIRTABLE_BASE_ID);
 export const TABLE_NAME = 'BillingInformation';
+export const REGISTRATION_TABLE_NAME = 'Registration';
 
 // Retry configuration
 const MAX_RETRIES = 3;
@@ -352,4 +353,83 @@ export async function updateDocumentField(recordId: string, fileUrl: string, fil
       throw error;
     }
   }, `updateDocumentField(${recordId})`);
+}
+
+export async function updateRegistrationReceiptByUuid(uuid: string, attachmentData: any[]) {
+  return retryWithBackoff(async () => {
+    try {
+      // 1. Find the registration record by uuid
+      const records = await base(REGISTRATION_TABLE_NAME).select({
+        filterByFormula: `{uuid} = '${uuid}'`,
+        maxRecords: 1
+      }).firstPage();
+
+      if (records.length === 0) {
+        throw new Error(`Registration record not found for uuid: ${uuid}`);
+      }
+
+      const recordId = records[0].id;
+
+      // 2. Get existing receipts and merge with new ones
+      const existingReceipts = records[0].fields.Receipt as any[] || [];
+      const updatedReceipts = [...existingReceipts, ...attachmentData];
+
+      // 3. Update the Receipt field
+      const record = await base(REGISTRATION_TABLE_NAME).update(recordId, {
+        Receipt: updatedReceipts
+      } as any);
+
+      return { success: true, record };
+    } catch (error) {
+      console.error(`Error updating registration receipt (uuid: ${uuid}):`, error);
+      throw error;
+    }
+  }, `updateRegistrationReceiptByUuid(${uuid})`);
+}
+
+export async function getRegistrationByUuid(uuid: string) {
+  return retryWithBackoff(async () => {
+    try {
+      const records = await base(REGISTRATION_TABLE_NAME).select({
+        filterByFormula: `{uuid} = '${uuid}'`,
+        maxRecords: 1
+      }).firstPage();
+
+      if (records.length === 0) return null;
+
+      return {
+        id: records[0].id,
+        fields: records[0].fields
+      };
+    } catch (error) {
+      console.error(`Error fetching registration by uuid (${uuid}):`, error);
+      throw error;
+    }
+  }, `getRegistrationByUuid(${uuid})`);
+}
+
+export async function updateRegistrationPayerByUuid(uuid: string, payerName: string) {
+  return retryWithBackoff(async () => {
+    try {
+      const records = await base(REGISTRATION_TABLE_NAME).select({
+        filterByFormula: `{uuid} = '${uuid}'`,
+        maxRecords: 1
+      }).firstPage();
+
+      if (records.length === 0) {
+        throw new Error(`Registration record not found for uuid: ${uuid}`);
+      }
+
+      const recordId = records[0].id;
+
+      const record = await base(REGISTRATION_TABLE_NAME).update(recordId, {
+        name_regis: payerName
+      } as any);
+
+      return { success: true, record };
+    } catch (error) {
+      console.error(`Error updating registration payer (uuid: ${uuid}):`, error);
+      throw error;
+    }
+  }, `updateRegistrationPayerByUuid(${uuid})`);
 }
