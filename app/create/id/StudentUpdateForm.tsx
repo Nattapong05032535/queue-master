@@ -84,9 +84,14 @@ export default function StudentUpdateForm({ student, billingTemplate }: { studen
     tax_addres: student.fields.tax_addres || '',
   });
 
-  // State for personal fields to allow numeric filtering
-  const [personalData, setPersonalData] = useState({
+  // State for all other fields to allow reactive background colors
+  const [formData, setFormData] = useState({
+    nickname: student.fields.nickname || '',
+    full_name: student.fields.full_name || '',
+    full_name_certificate: student.fields.full_name_certificate || '',
     phone_num: student.fields.phone_num || '',
+    user_email: student.fields.user_email || '',
+    remark: student.fields.remark || '',
   });
 
   const handleCopyBilling = () => {
@@ -101,6 +106,17 @@ export default function StudentUpdateForm({ student, billingTemplate }: { studen
     }
   };
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    let finalValue = value;
+
+    if (name === 'phone_num') {
+      finalValue = value.replace(/[^0-9]/g, '').slice(0, 10);
+    }
+
+    setFormData(prev => ({ ...prev, [name]: finalValue }));
+  };
+
   const handleBillingChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     let finalValue = value;
@@ -111,18 +127,6 @@ export default function StudentUpdateForm({ student, billingTemplate }: { studen
     }
     
     setBillingData(prev => ({ ...prev, [name]: finalValue }));
-  };
-
-  const handlePersonalChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    let finalValue = value;
-
-    // Numbers only for Phone Number (max 10)
-    if (name === 'phone_num') {
-      finalValue = value.replace(/[^0-9]/g, '').slice(0, 10);
-    }
-
-    setPersonalData(prev => ({ ...prev, [name]: finalValue }));
   };
 
   return (
@@ -161,7 +165,8 @@ export default function StudentUpdateForm({ student, billingTemplate }: { studen
                 label="Nickname / Social name"
                 description="เช่น Matt / Matt Wonderful"
                 name="nickname"
-                defaultValue={student.fields.nickname}
+                value={formData.nickname}
+                onChange={handleInputChange}
                 disabled={isReadOnly}
                 placeholder="ชื่อเล่นของคุณ"
                 required
@@ -170,7 +175,8 @@ export default function StudentUpdateForm({ student, billingTemplate }: { studen
             <InputField
               label="ชื่อ-นามสกุล (ภาษาไทย)"
               name="full_name"
-              defaultValue={student.fields.full_name}
+              value={formData.full_name}
+              onChange={handleInputChange}
               disabled={isReadOnly}
               placeholder="ชื่อ-นามสกุล ของท่าน"
               required
@@ -178,7 +184,8 @@ export default function StudentUpdateForm({ student, billingTemplate }: { studen
             <InputField
               label="ชื่อ-นามสกุล (English)"
               name="full_name_certificate"
-              defaultValue={student.fields.full_name_certificate}
+              value={formData.full_name_certificate}
+              onChange={handleInputChange}
               disabled={isReadOnly}
               placeholder="Your name in English"
               pattern="^[a-zA-Z\s]+$"
@@ -188,8 +195,8 @@ export default function StudentUpdateForm({ student, billingTemplate }: { studen
               label="เบอร์โทร"
               name="phone_num"
               type="tel"
-              value={personalData.phone_num}
-              onChange={handlePersonalChange}
+              value={formData.phone_num}
+              onChange={handleInputChange}
               disabled={isReadOnly}
               placeholder="08XXXXXXXX"
               pattern="^[0-9]{10}$"
@@ -200,7 +207,8 @@ export default function StudentUpdateForm({ student, billingTemplate }: { studen
               label="อีเมลส่วนตัว"
               name="user_email"
               type="email"
-              defaultValue={student.fields.user_email}
+              value={formData.user_email}
+              onChange={handleInputChange}
               disabled={isReadOnly}
               placeholder="example@email.com"
               required
@@ -287,7 +295,9 @@ export default function StudentUpdateForm({ student, billingTemplate }: { studen
                   focus:ring-2 focus:ring-blue-50/50 focus:border-blue-200 transition-all outline-none resize-none
                   ${isReadOnly
                     ? 'bg-slate-50/50 border-slate-100 text-slate-500 cursor-not-allowed'
-                    : 'bg-white border-slate-300 hover:border-slate-400 shadow-sm'
+                    : !billingData.tax_addres
+                      ? ' border-red-200 placeholder-gray-400'
+                      : 'bg-white border-slate-300 hover:border-slate-400 shadow-sm'
                   }
                 `}
               />
@@ -304,7 +314,8 @@ export default function StudentUpdateForm({ student, billingTemplate }: { studen
               </div>
               <textarea
                 name="remark"
-                defaultValue={student.fields.remark}
+                value={formData.remark}
+                onChange={handleInputChange}
                 disabled={isReadOnly}
                 rows={2}
                 placeholder="ระบุเพิ่มเติม..."
@@ -313,7 +324,9 @@ export default function StudentUpdateForm({ student, billingTemplate }: { studen
                   focus:ring-2 focus:ring-blue-50/50 focus:border-blue-200 transition-all outline-none resize-none
                   ${isReadOnly
                     ? 'bg-slate-50/50 border-slate-100 text-slate-500 cursor-not-allowed'
-                    : 'bg-white border-slate-300 hover:border-slate-400 shadow-sm'
+                    : !formData.remark
+                      ? ' border-slate-300 placeholder-gray-400'
+                      : 'bg-white border-slate-300 hover:border-slate-400 shadow-sm'
                   }
                 `}
               />
@@ -323,7 +336,7 @@ export default function StudentUpdateForm({ student, billingTemplate }: { studen
 
         <div className="pt-0 space-y-3">
           {state.message && (
-            <div className={`p-4 rounded-xl border text-sm text-center font-medium transition-all duration-500 animate-in fade-in slide-in-from-top-2 ${state.success ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 'bg-red-50 border-red-100 text-red-700'}`}>
+            <div className={`p-4 rounded-xl border text-sm text-center font-medium transition-all duration-500 animate-in fade-in slide-in-from-top-2 ${state.success ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : ' border-red-100 text-red-700'}`}>
               <div className="flex items-center justify-center gap-2">
                 {state.success && (
                   <svg className="w-5 h-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -396,7 +409,9 @@ function InputField({
           focus:ring-2 focus:ring-blue-50/50 focus:border-blue-200 transition-all outline-none
           ${disabled
             ? 'bg-slate-50/50 border-slate-100 text-slate-500 cursor-not-allowed shadow-none'
-            : 'bg-white border-slate-300 hover:border-slate-400 shadow-sm'
+            : (!value && !defaultValue)
+              ? ' border-red-200 placeholder-gray-400'
+              : 'bg-white border-slate-300 hover:border-slate-400 shadow-sm'
           }
         `}
       />

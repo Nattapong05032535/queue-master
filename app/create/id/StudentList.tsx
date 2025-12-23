@@ -28,22 +28,12 @@ interface StudentData {
 }
 
 export default function StudentList({ students, salesList = [] }: { students: StudentData[], salesList?: string[] }) {
-  const [expandedId, setExpandedId] = useState<string | null>(
-    students.length === 1 ? students[0].id : null
-  );
-
-  const toggleAccordion = (id: string) => {
-    const isOpening = expandedId !== id;
-    setExpandedId(isOpening ? id : null);
-  };
-
   // Find a student who has completed the update to use as a template
   const billingTemplate = students.find(s => s.fields.is_update);
 
   // Calculate stats
   const total = students.length;
   const completed = students.filter(s => s.fields.is_update).length;
-  const pending = total - completed;
 
   // Initialize sale name from existing data if available
   const initialSale = students.find(s => s.fields.name_sale)?.fields.name_sale || '';
@@ -109,31 +99,21 @@ export default function StudentList({ students, salesList = [] }: { students: St
           </div>
         </div>
 
-        <div className="p-4 sm:p-8 space-y-3 flex-grow">
+        <div className="p-0 sm:p-8 space-y-8 flex-grow">
           {students.map((student) => {
-            const isExpanded = expandedId === student.id;
             const isCompleted = student.fields.is_update;
 
             return (
               <div
                 key={student.id}
                 id={`student-${student.id}`}
-                className={`
-              bg-white rounded-2xl border transition-all duration-300
-              ${isExpanded
-                    ? 'border-blue-100 shadow-xl shadow-blue-500/5 ring-4 ring-blue-50/20'
-                    : 'border-slate-100 hover:border-slate-200 hover:shadow-lg hover:shadow-slate-200/40'
-                  }
-            `}
+                className="bg-white rounded-2xl border border-slate-400 shadow-sm overflow-hidden"
               >
-                {/* Accordion Header */}
-                <button
-                  onClick={() => toggleAccordion(student.id)}
-                  className="w-full flex items-center justify-between p-3 text-left focus:outline-none group"
-                >
+                {/* Header Section (Not a button anymore) */}
+                <div className="w-full flex items-center justify-between p-4 bg-slate-50/50 border-b border-slate-100">
                   <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 w-full">
                     <div className={`
-                      w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-base shrink-0 transition-transform duration-300 group-hover:scale-110
+                      w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-base shrink-0
                       ${isCompleted
                         ? 'bg-emerald-500 shadow-emerald-200 shadow-lg'
                         : 'bg-slate-400 shadow-slate-100 shadow-md'
@@ -143,7 +123,7 @@ export default function StudentList({ students, salesList = [] }: { students: St
                     </div>
 
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-3 flex-grow text-sm">
-                     <h3 className={`text-lg font-bold transition-colors duration-200 ${isExpanded ? 'text-blue-700' : 'text-slate-800'}`}>
+                     <h3 className="text-lg font-bold text-slate-800">
                         {student.fields.full_name || 'ไม่ระบุชื่อ'}
                       </h3>
 
@@ -162,27 +142,11 @@ export default function StudentList({ students, salesList = [] }: { students: St
                       </div>
                     </div>
                   </div>
+                </div>
 
-                  <div className={`
-                transition-transform duration-200 text-slate-400
-                ${isExpanded ? 'rotate-180' : ''}
-              `}>
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </div>
-                </button>
-
-                {/* Accordion Body */}
-                <div
-                  className={`
-                transition-all duration-300 ease-in-out overflow-hidden
-                ${isExpanded ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}
-              `}
-                >
-                  <div className="border-t border-slate-100">
-                    {isExpanded && <StudentUpdateForm student={student} billingTemplate={billingTemplate} />}
-                  </div>
+                {/* Form Body */}
+                <div className="p-0">
+                  <StudentUpdateForm student={student} billingTemplate={billingTemplate} />
                 </div>
               </div>
             );
