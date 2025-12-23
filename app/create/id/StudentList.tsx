@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import StudentUpdateForm from './StudentUpdateForm';
 import SlipUpload from './SlipUpload';
 import { formatDate } from '@/lib/utils';
@@ -55,6 +56,18 @@ export default function StudentList({
 
   // Track expanded students
   const [expandedIds, setExpandedIds] = useState<string[]>([]);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+
+  // Trigger success modal when all are completed
+  useEffect(() => {
+    if (total > 0 && completed === total) {
+      // Small delay for better UX
+      const timer = setTimeout(() => setShowSuccessModal(true), 800);
+      return () => clearTimeout(timer);
+    } else {
+      setShowSuccessModal(false);
+    }
+  }, [completed, total]);
 
   // Update expandedIds when students prop changes (e.g., after submission)
   // Shows all uncompleted forms, hides completed ones
@@ -197,7 +210,7 @@ export default function StudentList({
                   bg-white rounded-2xl border transition-all duration-300 overflow-hidden
                   ${isExpanded 
                     ? 'border-blue-300 shadow-lg shadow-blue-500/5' 
-                    : 'border-slate-100'
+                    : 'border-slate-400'
                   }
                 `}
               >
@@ -227,6 +240,11 @@ export default function StudentList({
                       </h3>
 
                       <div className="flex items-center gap-3">
+                        {isCompleted && (
+                          <span className="text-[13px] font-bold text-blue-600 px-1">
+                            ดูข้อมูล
+                          </span>
+                        )}
                         {isCompleted ? (
                           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[12px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 uppercase tracking-widest">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-sm shadow-emerald-200"></span>
@@ -265,6 +283,56 @@ export default function StudentList({
           })}
         </div>
       </div>
+
+      {/* Success Modal Overlay */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-black/50 backdrop-blur-sm animate-in fade-in duration-500">
+          <div className="w-full max-w-lg bg-white rounded-[2rem] shadow-2xl shadow-blue-500/10 border border-slate-100 overflow-hidden animate-in zoom-in-95 duration-500 delay-150 relative">
+            {/* Close Button */}
+            <button 
+              onClick={() => setShowSuccessModal(false)}
+              className="absolute top-6 right-6 p-2 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all duration-200 z-20"
+              aria-label="Close dialog"
+            >
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            <div className="p-8 sm:p-12 flex flex-col items-center text-center">
+              {/* Icon/Decoration */}
+              <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center mb-8 relative">
+                <div className="absolute inset-0 bg-emerald-100 rounded-full animate-ping opacity-20"></div>
+                <svg className="w-10 h-10 text-emerald-500 relative z-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+
+              <h2 className="text-4xl font-black text-slate-900 mb-6 tracking-tight">
+                Thank You
+              </h2>
+
+              <div className="bg-slate-50 border border-slate-100 rounded-2xl p-8 mb-10 w-full">
+                <p className="text-lg font-bold text-slate-700 leading-relaxed">
+                  โปรดเช็คอีเมลการยืนยันลงทะเบียนได้ที่<br />
+                  <span className="text-blue-600">อีเมลของคุณ</span>
+                </p>
+              </div>
+
+              <Link
+                href="/"
+                className="group relative w-full sm:w-64 py-4 px-8 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold text-lg shadow-xl shadow-blue-200 transition-all duration-300 active:scale-95 flex items-center justify-center gap-2 overflow-hidden"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+                <span>เลือกคลาสเพิ่มเติม</span>
+                <svg className="w-5 h-5 transition-transform duration-300 group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
